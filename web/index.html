@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>PD Outfits</title>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <span id="ui-subtitle">Manage</span>
+            <h1 id="ui-title">Wardrobe</h1>
+        </header>
+
+        <div class="search-wrapper">
+            <input type="text" id="search" class="search-box" placeholder="Search outfits...">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        </div>
+        
+        <div id="outfit-list" class="content">
+            </div>
+
+        <footer>
+            <button id="create-btn" class="btn-primary">Save Current Outfit</button>
+            <div class="branding" id="ui-footer">Powered by PrimeDev</div>
+        </footer>
+
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <h3 id="modal-title">Title</h3>
+                <p id="modal-desc">Description text here...</p>
+                <input type="text" id="modal-input" class="search-box" style="display:none; margin-bottom: 10px;">
+                
+                <div class="modal-actions">
+                    <button id="modal-cancel" class="btn-secondary">Cancel</button>
+                    <button id="modal-confirm" class="btn-danger">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="locales.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
