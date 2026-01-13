@@ -9,7 +9,7 @@ Config.Language = 'en'
 
 -- Interaction Settings
 Config.CommandName = 'outfits' 
-Config.Keybind = nil -- Once set, this will be saved as a keybind in the player's local settings
+Config.Keybind = nil -- Once set, This will be saved as a keybind in the player's local settings, And the only way to change it is will be through their settings.
 
 -- Clothing Script Support
 -- 'qb-clothing', 'fivem-appearance', 'illenium-appearance', 'esx_skin'

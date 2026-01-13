@@ -1,4 +1,3 @@
--- Initialization (Server Side Only)
 local QBCore = nil
 local ESX = nil
 
@@ -8,7 +7,6 @@ elseif Config.Framework == 'esx' then
     ESX = exports["es_extended"]:getSharedObject()
 end
 
--- Helper: Get Player Identifier
 local function GetIdentifier(source)
     if Config.Framework == 'qbcore' then
         local Player = QBCore.Functions.GetPlayer(source)
@@ -42,7 +40,6 @@ RegisterNetEvent('pd-outfits:server:saveOutfit', function(name, skin, model)
     }, function(id)
         if id then
             TriggerClientEvent('pd-outfits:client:notify', src, 'outfit_saved', 'success')
-            -- Refresh list
             MySQL.query('SELECT * FROM pd_outfits WHERE identifier = ?', {identifier}, function(result)
                 TriggerClientEvent('pd-outfits:client:updateOutfits', src, result)
             end)
@@ -83,13 +80,13 @@ end)
 -- Version Checker
 local currentVersion = GetResourceMetadata(GetCurrentResourceName(), 'version', 0)
 
-CreateThread(function()
+Citizen.CreateThread(function()
     local githubRepo = 'JoshOscar5654/pd-outfits' 
     
     PerformHttpRequest('https://api.github.com/repos/'..githubRepo..'/releases/latest', function(err, text, headers)
         if err == 200 then
             local data = json.decode(text)
-            local latestVersion = data.tag_name:gsub('v', '') -- Removes 'v' if present
+            local latestVersion = data.tag_name:gsub('v', '')
 
             if latestVersion ~= currentVersion then
                 print('^4[PrimeDev] ------------------------------------------------^0')
@@ -101,7 +98,9 @@ CreateThread(function()
                 print('^4[PrimeDev] ^2'..GetCurrentResourceName()..' is up to date! ('..currentVersion..')^0')
             end
         else
-            print('^4[PrimeDev] ^1Error checking for updates.^0')
+            if Config.Debug then
+                print('^4[PrimeDev] ^1Debug: GitHub API Error Code: '..tostring(err)..'^0')
+            end
         end
-    end, 'GET')
+    end, 'GET', '', { ['User-Agent'] = 'PrimeDev-Script' })
 end)

@@ -9,47 +9,32 @@ local function DebugLog(msg)
 end
 
 if Config.Framework == 'qbcore' then
-    QBCore = exports['qb-core']:GetCoreObject()
-elseif Config.Framework == 'esx' then
-    ESX = exports["es_extended"]:getSharedObject()
-end
-
--- Compatibility Auto-Check (Runs on start if Debug is true)
-CreateThread(function()
-    if not Config.Debug then return end
-    
-    Wait(1000) -- Wait for other resources to load
-    DebugLog('Starting Compatibility Auto-Check...')
-    
-    if Config.ClothingScript == 'qb-clothing' then
-        local PlayerData = QBCore.Functions.GetPlayerData()
-        if PlayerData and PlayerData.skin and next(PlayerData.skin) ~= nil then
-            DebugLog('^2[PASS] Method 1: QBCore PlayerData found.^0')
-        else
-            DebugLog('^1[FAIL] Method 1: QBCore PlayerData is empty.^0')
-        end
-
-        local success, skinData = pcall(function() return exports['qb-clothing']:GetCurrentPed() end)
-        if success and skinData then
-            DebugLog('^2[PASS] Method 2: qb-clothing Export found.^0')
-        else
-            DebugLog('^1[FAIL] Method 2: qb-clothing Export not found.^0')
-        end
-    else
-        DebugLog('Using '..Config.ClothingScript..', skipping qb-clothing checks.')
+    if GetResourceState('qb-core') == 'started' then
+        QBCore = exports['qb-core']:GetCoreObject()
     end
-    DebugLog('Auto-Check complete.')
-end)
+elseif Config.Framework == 'esx' then
+    if GetResourceState('es_extended') == 'started' then
+        ESX = exports["es_extended"]:getSharedObject()
+    end
+end
 
 local function Notify(msg, type)
-    if Config.Framework == 'qbcore' then
+    if Config.Framework == 'qbcore' and QBCore then
         QBCore.Functions.Notify(msg, type)
-    elseif Config.Framework == 'esx' then
+    elseif Config.Framework == 'esx' and ESX then
         ESX.ShowNotification(msg)
     else
-        print(msg) 
+        SetNotificationTextEntry('STRING')
+        AddTextComponentString(msg)
+        DrawNotification(false, true)
     end
 end
+
+Citizen.CreateThread(function()
+    if Config.CommandName then
+        TriggerEvent('chat:addSuggestion', '/' .. Config.CommandName, 'Open Outfits Menu', {})
+    end
+end)
 
 local function IsNearClothingShop()
     if not Config.RestrictToShops then return true end
@@ -62,40 +47,67 @@ local function IsNearClothingShop()
     return false
 end
 
--- UNIVERSAL SKIN GETTER
+local function ScrapeSkinData()
+    local ped = PlayerPedId()
+    local skin = {}
+
+    -- Helper to format like qb-clothing
+    local function getComp(id)
+        return { item = GetPedDrawableVariation(ped, id), texture = GetPedTextureVariation(ped, id) }
+    end
+    local function getProp(id)
+        return { item = GetPedPropIndex(ped, id), texture = GetPedPropTextureIndex(ped, id) }
+    end
+
+    -- Mapping GTA Components to qb-clothing names
+    skin['mask'] = getComp(1)
+    skin['arms'] = getComp(3)
+    skin['pants'] = getComp(4)
+    skin['bag'] = getComp(5)
+    skin['shoes'] = getComp(6)
+    skin['accessory'] = getComp(7)
+    skin['t-shirt'] = getComp(8)
+    skin['vest'] = getComp(9)
+    skin['decals'] = getComp(10)
+    skin['torso2'] = getComp(11) -- Jackets
+
+    -- Mapping Props
+    skin['hat'] = getProp(0)
+    skin['glass'] = getProp(1)
+    skin['ear'] = getProp(2)
+    skin['watch'] = getProp(6)
+    skin['bracelet'] = getProp(7)
+    return skin
+end
+
+-- === UNIVERSAL SKIN GETTER ===
 local function GetPlayerSkin(cb)
     local playerPed = PlayerPedId()
     DebugLog('Fetching skin data...')
 
     if Config.ClothingScript == 'qb-clothing' then
-        -- 1. Try QBCore PlayerData
-        local PlayerData = QBCore.Functions.GetPlayerData()
-        if PlayerData and PlayerData.skin and next(PlayerData.skin) ~= nil then
-            DebugLog('Skin found via QBCore PlayerData.')
-            cb(PlayerData.skin, GetEntityModel(playerPed))
-            return
-        end
-
-        -- 2. Try Export
         local success, skinData = pcall(function() 
             return exports['qb-clothing']:GetCurrentPed() 
         end)
+        
         if success and skinData then
             DebugLog('Skin found via qb-clothing Export.')
             cb(skinData, GetEntityModel(playerPed))
             return
         end
 
-        -- 3. Fallback: Event
-        DebugLog('Trying Event fallback...')
-        TriggerEvent('qb-clothing:client:getSkin', function(skin)
-            if skin then
-                cb(skin, GetEntityModel(playerPed))
-            else
-                print('^1[PD-Outfits] CRITICAL: Could not retrieve skin (Tried: Core, Export, Event).^0')
-                cb(nil, nil)
+        if QBCore then
+            local PlayerData = QBCore.Functions.GetPlayerData()
+            if PlayerData and PlayerData.skin and next(PlayerData.skin) ~= nil then
+                DebugLog('Skin found via QBCore PlayerData.')
+                cb(PlayerData.skin, GetEntityModel(playerPed))
+                return
             end
-        end)
+        end
+
+        DebugLog('Using Native Scraper fallback (Guaranteed to work).')
+        local scrapedSkin = ScrapeSkinData()
+        cb(scrapedSkin, GetEntityModel(playerPed))
 
     elseif Config.ClothingScript == 'fivem-appearance' or Config.ClothingScript == 'illenium-appearance' then
         local appearance = exports[Config.ClothingScript]:getPedAppearance(playerPed)
@@ -105,11 +117,12 @@ local function GetPlayerSkin(cb)
             cb(skin, GetEntityModel(PlayerPedId()))
         end)
     else
-        cb(nil, nil)
+        local scrapedSkin = ScrapeSkinData()
+        cb(scrapedSkin, GetEntityModel(playerPed))
     end
 end
 
--- UNIVERSAL SKIN SETTER & SAVER
+-- === UNIVERSAL SKIN SETTER ===
 local function SetPlayerSkin(skin, model)
     local playerPed = PlayerPedId()
     
@@ -125,35 +138,27 @@ local function SetPlayerSkin(skin, model)
         local success = pcall(function()
             exports['qb-clothing']:LoadPed(skin)
         end)
+
         if not success then
             TriggerEvent('qb-clothing:client:loadPlayerClothing', skin, playerPed)
         end
         
-        -- AUTO-SAVE Logic
         Wait(100)
-        DebugLog('Triggering Auto-Save for qb-clothing...')
-        
-        local saveSuccess, currentData = pcall(function()
-            return exports['qb-clothing']:GetCurrentPed()
-        end)
-
+        local saveSuccess, currentData = pcall(function() return exports['qb-clothing']:GetCurrentPed() end)
         if saveSuccess and currentData then
             TriggerServerEvent("qb-clothing:insert_character_current", currentData)
-            DebugLog('Saved to DB via insert_character_current.')
         else
-            TriggerServerEvent("qb-clothes:saveSkin", skin)
+            TriggerServerEvent("qb-clothes:saveSkin", GetEntityModel(playerPed), json.encode(skin))
         end
 
     elseif Config.ClothingScript == 'fivem-appearance' or Config.ClothingScript == 'illenium-appearance' then
         exports[Config.ClothingScript]:setPedAppearance(playerPed, skin)
         Wait(100)
-        DebugLog('Saving via appearance export...')
         exports[Config.ClothingScript]:saveAppearance()
 
     elseif Config.ClothingScript == 'esx_skin' then
         TriggerEvent('skinchanger:loadSkin', skin)
         Wait(100)
-        DebugLog('Saving via esx_skin...')
         TriggerServerEvent('esx_skin:save', skin)
     end
 end
@@ -208,7 +213,8 @@ end)
 RegisterNUICallback('useOutfit', function(data, cb)
     local outfit = data.outfit
     if outfit and outfit.skin then
-        SetPlayerSkin(json.decode(outfit.skin), tonumber(outfit.model))
+        local skinData = json.decode(outfit.skin)
+        SetPlayerSkin(skinData, tonumber(outfit.model))
         Notify(Locales[Config.Language]['outfit_loaded'], 'success')
     end
     cb('ok')

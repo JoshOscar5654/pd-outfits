@@ -2,14 +2,12 @@ let currentLanguage = 'en'; // Change as needed for your default language, or ad
 let currentOutfits = [];
 let selectedOutfitId = null;
 
-// Listen for incoming messages from Client (Lua)
 window.addEventListener('message', function(event) {
     const data = event.data;
     if (data.action === 'open') {
         currentLanguage = data.language || 'en';
         applyLocales();
         
-        // Reset state
         document.body.classList.remove('closing');
         document.body.style.display = 'block';
     } else if (data.action === 'updateList') {
@@ -18,7 +16,6 @@ window.addEventListener('message', function(event) {
     }
 });
 
-// Apply Text Translations
 function applyLocales() {
     const lang = Locales[currentLanguage] || Locales['en'];
     document.getElementById('ui-title').textContent = lang.title;
@@ -34,22 +31,18 @@ document.onkeyup = function(data) {
     if (data.key === 'Escape') closeUI();
 };
 
-// Animation Logic for Closing
 function closeUI() {
-    // Add the CSS class that triggers @keyframes slideOut
     document.body.classList.add('closing');
 
-    // Wait for animation to finish (0.4s) before hiding
     setTimeout(() => {
         document.body.style.display = 'none';
         
-        // Notify Client script
         fetch(`https://${GetParentResourceName()}/close`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=UTF-8' },
             body: JSON.stringify({})
         });
-    }, 400); // Must match CSS animation duration
+    }, 400);
 }
 
 function renderOutfits(outfits) {
@@ -65,7 +58,6 @@ function renderOutfits(outfits) {
     outfits.forEach((outfit, index) => {
         const item = document.createElement('div');
         item.classList.add('outfit-item');
-        // Staggered animation effect
         item.style.animationDelay = `${index * 0.05}s`; 
         
         item.innerHTML = `
@@ -101,7 +93,6 @@ document.getElementById('create-btn').addEventListener('click', () => {
     openInputModal('save');
 });
 
-// Modal Logic
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalDesc = document.getElementById('modal-desc');
